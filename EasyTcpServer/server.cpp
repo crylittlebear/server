@@ -39,19 +39,45 @@ int main() {
 	//接受来自客户端的连接
 	sockaddr_in c_addr = {};
 	int addr_len = sizeof(c_addr);
-	const char msg[] = "客户端你好，我是服务器!";
+	char buf[1024] = { };
 	while (true) {
 		SOCKET c_sock = accept(sock, (sockaddr*)&c_addr, &addr_len);
 		if (c_sock == INVALID_SOCKET) {
 			std::cerr << "接受客户端连接失败!\n";
-			return -1;
+			break;
 		}
 		else {
 			std::cout << "成功接收到来自客户端的连接，IP: " << inet_ntoa(c_addr.sin_addr)
 				<< ", port: " << ntohs(c_addr.sin_port) << std::endl;
+			while (true) {
+				memset(buf, 0, sizeof(buf));
+				int len = recv(c_sock, buf, sizeof(buf), 0);
+				if (len > 0) {
+					if (strcmp(buf, "getName") == 0) {
+						const char msg[] = "xiao hua";
+						send(c_sock, msg, sizeof(msg), 0);
+					}
+					else if (strcmp(buf, "getAge") == 0) {
+						const char msg[] = "20";
+						send(c_sock, msg, sizeof(msg), 0);
+					}
+					else {
+						const char msg[] = "听不懂你在说什么";
+						send(c_sock, msg, sizeof(msg), 0);
+					}
+				}
+				else if (len == 0) {
+					std::cout << "客户端断开了连接" << std::endl;
+					break;
+				}
+				else {
+					std::cout << "接受数据错误，任务结束\n";
+					return -1;
+				}
+			}
 		}
 		//向客户端发送数据
-		send(c_sock, msg, strlen(msg) + 1, 0);
+		//send(c_sock, msg, strlen(msg) + 1, 0);
 		closesocket(c_sock);
 	}
 	closesocket(sock);

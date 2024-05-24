@@ -32,8 +32,28 @@ int main() {
 	}
 	//接收消息
 	char buf[1024];
-	recv(sock, buf, sizeof(buf), 0);
-	std::cout << "服务器说: " << buf << std::endl;
+	while (true) {
+		memset(buf, 0, sizeof(buf));
+		std::cin >> buf;
+		if (strcmp(buf, "exit") == 0) {
+			break;
+		}
+		send(sock, buf, strlen(buf) + 1, 0);
+		Sleep(DWORD(100));
+		memset(buf, 0, sizeof(buf));
+		int len = recv(sock, buf, sizeof(buf), 0);
+		if (len > 0) {
+			std::cout << buf << std::endl;
+		}
+		else if (len == 0) {
+			std::cout << "服务器断开了连接,任务结束\n";
+			break;
+		}
+		else {
+			std::cerr << "接收数据失败\n";
+			break;
+		}
+	}
 	//关闭套接字
 	closesocket(sock);
 	WSACleanup();

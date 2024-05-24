@@ -5,6 +5,37 @@
 #include <Windows.h>
 #include <WinSock2.h>
 
+enum CMDType {
+	CMD_LOGIN,
+	CMD_LOGOUT,
+	CMD_ERROR,
+};
+
+//数据包头
+struct DataHead {
+	//数据长度
+	short dataLength;
+	//命令
+	short cmd;
+};
+
+struct Login {
+	char userName[32];
+	char userPassWord[32];
+};
+
+struct LoginResult {
+	int result;
+};
+
+struct Logout {
+	char userName[32];
+};
+
+struct LogoutResult {
+	int result;
+};
+
 int main() {
 	WORD ver = MAKEWORD(2, 2);
 	WSADATA data;
@@ -38,20 +69,42 @@ int main() {
 		if (strcmp(buf, "exit") == 0) {
 			break;
 		}
-		send(sock, buf, strlen(buf) + 1, 0);
-		Sleep(DWORD(100));
-		memset(buf, 0, sizeof(buf));
-		int len = recv(sock, buf, sizeof(buf), 0);
-		if (len > 0) {
-			std::cout << buf << std::endl;
+		else if (strcmp(buf, "login") == 0) {
+			//向服务器发送登录指令
+			Login login = { "Li heng", "1994218li" };
+			DataHead head = { sizeof(Login), CMD_LOGIN };
+			send(sock, (const char*)&head, sizeof(DataHead), 0);
+			send(sock, (const char*)&login, sizeof(Login), 0);
+			//接收来自服务器的消息
+			LoginResult res = { };
+			recv(sock, (char*)&head, sizeof(head), 0);
+			recv(sock, (char*)&res, sizeof(res), 0);
+			if (res.result == 0) {
+				std::cout << "登录成功" << std::endl;
+			}
+			else {
+				std::cout << "登录失败" << std::endl;
+			}
 		}
-		else if (len == 0) {
-			std::cout << "服务器断开了连接,任务结束\n";
-			break;
+		else if (strcmp(buf, "logout") == 0) {
+			//向服务器发送登出指令
+			Logout logout = { "Li heng" };
+			DataHead head = { sizeof(Logout), CMD_LOGOUT };
+			send(sock, (const char*)&head, sizeof(DataHead), 0);
+			send(sock, (const char*)&logout, sizeof(Logout), 0);
+			//接收来自服务器的消息
+			LogoutResult res = { };
+			recv(sock, (char*)&head, sizeof(head), 0);
+			recv(sock, (char*)&res, sizeof(res), 0);
+			if (res.result == 1) {
+				std::cout << "成功退出登录" << std::endl;
+			}
+			else {
+				std::cout << "退出登录失败" << std::endl;
+			}
 		}
 		else {
-			std::cerr << "接收数据失败\n";
-			break;
+			std::cout << "不支持的命令，请重新输入\n";
 		}
 	}
 	//关闭套接字

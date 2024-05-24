@@ -5,6 +5,37 @@
 #include <Windows.h>
 #include <WinSock2.h>
 
+enum CMDType {
+	CMD_LOGIN,
+	CMD_LOGOUT,
+	CMD_ERROR,
+};
+
+//数据包头
+struct DataHead {
+	//数据长度
+	short dataLength;
+	//命令
+	short cmd;
+};
+
+struct Login {
+	char userName[32];
+	char userPassWord[32];
+};
+
+struct LoginResult {
+	int result;
+};
+
+struct Logout {
+	char userName[32];
+};
+
+struct LogoutResult {
+	int result;
+};
+
 int main() {
 	WORD ver = MAKEWORD(2, 2);
 	WSADATA data;
@@ -39,7 +70,6 @@ int main() {
 	//接受来自客户端的连接
 	sockaddr_in c_addr = {};
 	int addr_len = sizeof(c_addr);
-	char buf[1024] = { };
 	while (true) {
 		SOCKET c_sock = accept(sock, (sockaddr*)&c_addr, &addr_len);
 		if (c_sock == INVALID_SOCKET) {
@@ -50,20 +80,45 @@ int main() {
 			std::cout << "成功接收到来自客户端的连接，IP: " << inet_ntoa(c_addr.sin_addr)
 				<< ", port: " << ntohs(c_addr.sin_port) << std::endl;
 			while (true) {
-				memset(buf, 0, sizeof(buf));
-				int len = recv(c_sock, buf, sizeof(buf), 0);
+				DataHead head = { };
+				int len = recv(c_sock, (char*)&head, sizeof(DataHead), 0);
 				if (len > 0) {
-					if (strcmp(buf, "getName") == 0) {
-						const char msg[] = "xiao hua";
-						send(c_sock, msg, sizeof(msg), 0);
+					std::cout << "接收到数据长度: " << head.dataLength << ", 命令："
+						<< head.cmd << std::endl;
+					switch (head.cmd) {
+					case CMD_LOGIN:
+					{
+						Login login = { };
+						recv(c_sock, (char*)&login, sizeof(Login), 0);
+						std::cout << "账户名: " << login.userName << ", 密码: " <<
+							login.userPassWord << std::endl;
+						std::cout << login.userName << "登录成功\n";
+						LoginResult res = { 0 };
+						head.dataLength = sizeof(LoginResult);
+						send(c_sock, (const char*)&head, sizeof(DataHead), 0);
+						send(c_sock, (const char*)&res, sizeof(LoginResult), 0);
+						break;
 					}
-					else if (strcmp(buf, "getAge") == 0) {
-						const char msg[] = "20";
-						send(c_sock, msg, sizeof(msg), 0);
+					case CMD_LOGOUT:
+					{
+						Logout logout = { };
+						recv(c_sock, (char*)&logout, sizeof(Logout), 0);
+						std::cout << "账户名: " << logout.userName << "发来退出登录请求"
+							<< std::endl;
+						LogoutResult res = { 1 };
+						head.dataLength = sizeof(LogoutResult);
+						send(c_sock, (const char*)&head, sizeof(DataHead), 0);
+						send(c_sock, (const char*)&res, sizeof(LogoutResult), 0);
+						std::cout << logout.userName << "退出登录成功\n";
+						break;
 					}
-					else {
-						const char msg[] = "听不懂你在说什么";
-						send(c_sock, msg, sizeof(msg), 0);
+					default:
+					{
+						head.cmd = CMD_ERROR;
+						head.dataLength = 0;
+						std::cout << "无法解析传送来的指令" << std::endl;
+						send(c_sock, (const char*)&head, sizeof(DataHead), 0);
+					}
 					}
 				}
 				else if (len == 0) {
@@ -71,7 +126,7 @@ int main() {
 					break;
 				}
 				else {
-					std::cout << "接受数据错误，任务结束\n";
+					std::cout << "接收数据错误，任务结束\n";
 					return -1;
 				}
 			}
